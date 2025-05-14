@@ -1,0 +1,37 @@
+{
+  "user": {
+    "id": 104810,
+    "name": "Leonor Pisco Pereira",
+    "email": "lppao@iscte.iul.pt",
+    "isActive": true,
+    "profilePicture": null
+  },
+  "preferences": {
+    "theme": "dark",
+    "notifications": {
+      "email": true,
+      "sms": false,
+      "push": null
+    },
+    "language": "Portuguese"
+  },
+  "activity": [
+    {
+      "type": "login",
+      "timestamp": 1697059200000,
+      "success": true
+    },
+    {
+      "type": "payment",
+      "timestamp": 1697062800000,
+      "amount": 107.88,
+      "details": null
+    }
+  ],
+  "scores": [95, 87, 92.5, null],
+  "metadata": {
+    "version": 1.2,
+    "lastUpdated": "2025-05-12T10:30:00Z",
+    "isVerified": false
+  }
+}
