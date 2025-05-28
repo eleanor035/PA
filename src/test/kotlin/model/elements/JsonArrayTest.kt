@@ -1,10 +1,7 @@
 package model.elements
 
 import org.junit.jupiter.api.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertNotSame
-import kotlin.test.assertTrue
-import kotlin.test.assertFalse
+import org.junit.jupiter.api.Assertions.*
 
 class JsonArrayTest {
 

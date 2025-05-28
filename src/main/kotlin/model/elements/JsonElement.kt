@@ -18,5 +18,5 @@ abstract class JSONElement(owner: JSONElement? = null) {
 
     abstract fun deepCopy(): JSONElement
 
-    abstract fun accept(visitor: JSONVisitor)
+    abstract fun accept(visitor: JSONVisitor): Boolean
 }

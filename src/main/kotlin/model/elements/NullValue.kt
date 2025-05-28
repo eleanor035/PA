@@ -5,7 +5,7 @@ import model.JSONVisitor
 /**
  * Represents a JSON null value.
  */
-class NullValue(owner: JSONElement? = null) : JSONElement(owner) {
+data object NullValue : JSONElement(null) {
 
     override fun serialize(): String = "null"
 
@@ -14,15 +14,12 @@ class NullValue(owner: JSONElement? = null) : JSONElement(owner) {
         return "$prefix${serialize()}"
     }
 
-    override fun deepCopy(): JSONElement = NullValue(owner)
+    override fun deepCopy(): JSONElement = NullValue
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
-            visitor.endVisit(this)
-        }
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val result = visitor.visit(this)
+        visitor.endVisit(this)
+        return result
     }
 
-    override fun equals(other: Any?): Boolean = other is NullValue
-
-    override fun hashCode(): Int = javaClass.hashCode()
 }

@@ -34,12 +34,12 @@ data class JSONProperty(val key: String, val value: JSONElement) : JSONElement()
 
     override fun toString(): String = "\t".repeat(depth) + "\"$key\": $value"
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
-            value.accept(visitor)
-        }
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val result = visitor.visit(this)
         visitor.endVisit(this)
+        return result
     }
+
 
     private fun escapeJsonString(s: String): String {
         return s.replace("\\", "\\\\")

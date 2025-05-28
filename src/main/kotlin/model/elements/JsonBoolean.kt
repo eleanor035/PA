@@ -38,9 +38,10 @@ data class JSONBoolean(val value: Boolean) : JSONElement() {
         return value
     }
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
-            visitor.endVisit(this)
-        }
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val result = visitor.visit(this)
+        visitor.endVisit(this)
+        return result
     }
+
 }

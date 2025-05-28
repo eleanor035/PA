@@ -75,10 +75,12 @@ data class JSONArray(val elements: List<JSONElement>) : JSONElement() {
     val isEmpty: Boolean
         get() = elements.isEmpty()
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val shouldVisitChildren = visitor.visit(this)
+        if (shouldVisitChildren) {
             elements.forEach { it.accept(visitor) }
         }
         visitor.endVisit(this)
+        return shouldVisitChildren
     }
 }

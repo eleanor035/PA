@@ -3,35 +3,57 @@ package model.visitors
 import model.elements.*
 import model.JSONVisitor
 
+/**
+ * A visitor that checks JSON arrays for consistent non-null element types.
+ * Reports one error per array with mixed types.
+ */
 abstract class ArrayTypeCheckVisitor : JSONVisitor {
     private val errors = mutableListOf<String>()
-    private var currentArrayType: Class<out JSONElement>? = null
 
+    /**
+     * Returns the list of validation errors found during traversal.
+     */
     fun getValidationErrors(): List<String> = errors.toList()
 
     override fun visit(jsonArray: JSONArray): Boolean {
-        currentArrayType = null
-        jsonArray.elements.forEach {
-            it.accept(this) // Triggers type-specific visit methods below
-            if (currentArrayType == null && it !is NullValue) {
-                currentArrayType = it.javaClass
+        // Perform type checking for this array
+        var arrayType: Class<out JSONElement>? = null
+        var hasMixedTypes = false
+        var secondType: Class<out JSONElement>? = null
+        val nonNullElements = jsonArray.elements.filter { it !is NullValue }
+
+        for (element in nonNullElements) {
+            if (arrayType == null) {
+                arrayType = element.javaClass
+            } else if (element.javaClass != arrayType && !hasMixedTypes) {
+                hasMixedTypes = true
+                secondType = element.javaClass
             }
         }
-        return false // Manual traversal (no auto-visit)
-    }
 
-    // Type-specific visit methods
-    override fun visit(jsonString: JSONString): Boolean = checkType(jsonString)
-    override fun visit(jsonBoolean: JSONBoolean): Boolean = checkType(jsonBoolean)
-    override fun visit(jsonNumber: JSONNumber): Boolean = checkType(jsonNumber)
-    override fun visit(jsonObject: JSONObject): Boolean = checkType(jsonObject)
-    override fun visit(jsonProperty: JSONProperty): Boolean = checkType(jsonProperty)
-    override fun visit(nullValue: NullValue): Boolean = true // Ignore nulls
-
-    private fun checkType(element: JSONElement): Boolean {
-        if (currentArrayType != null && element.javaClass != currentArrayType) {
-            errors.add("Array contains mixed types: ${currentArrayType?.simpleName} and ${element.javaClass.simpleName}")
+        if (hasMixedTypes && arrayType != null && secondType != null) {
+            errors.add("Array contains mixed types: ${arrayType.simpleName} and ${secondType.simpleName}")
         }
-        return true // Continue traversal
+
+        // Traverse into each element for further validation
+        jsonArray.elements.forEach { it.accept(this) }
+        return true
     }
+
+    // Type-specific visit methods (no type checking)
+    override fun visit(jsonString: JSONString): Boolean = true
+    override fun visit(jsonBoolean: JSONBoolean): Boolean = true
+    override fun visit(jsonNumber: JSONNumber): Boolean = true
+    override fun visit(jsonObject: JSONObject): Boolean = true
+    override fun visit(jsonProperty: JSONProperty): Boolean = true
+    override fun visit(nullValue: NullValue): Boolean = true
+
+    // End visit methods
+    override fun endVisit(jsonString: JSONString) {}
+    override fun endVisit(jsonBoolean: JSONBoolean) {}
+    override fun endVisit(jsonNumber: JSONNumber) {}
+    override fun endVisit(jsonArray: JSONArray) {}
+    override fun endVisit(jsonObject: JSONObject) {}
+    override fun endVisit(jsonProperty: JSONProperty) {}
+    override fun endVisit(nullValue: NullValue)  {}
 }

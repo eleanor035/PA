@@ -26,10 +26,10 @@ data class JSONString(val value: String) : JSONElement() {
 
     override fun toString(): String = value
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
-            visitor.endVisit(this)
-        }
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val result = visitor.visit(this)
+        visitor.endVisit(this)
+        return result
     }
 
     private fun escapeJsonString(s: String): String {

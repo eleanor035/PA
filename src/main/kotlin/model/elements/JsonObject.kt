@@ -13,14 +13,6 @@ data class JSONObject(val entries: List<JSONProperty>) : JSONElement() {
         entries.forEach { it.owner = this }
     }
 
-    init {
-        // Validate unique and non-empty keys
-        val keys = entries.map { it.key }
-        require(keys.all { it.isNotEmpty() }) { "Property keys cannot be empty: $keys" }
-        val duplicates = keys.groupingBy { it }.eachCount().filter { it.value > 1 }.keys
-        require(duplicates.isEmpty()) { "Property keys must be unique, duplicates found: $duplicates" }
-    }
-
     override fun serialize(): String {
         if (entries.isEmpty()) return "{}"
         val entriesStr = entries.joinToString(", ") { it.serialize() }
@@ -55,10 +47,10 @@ data class JSONObject(val entries: List<JSONProperty>) : JSONElement() {
     val isEmpty: Boolean
         get() = entries.isEmpty()
 
-    override fun accept(visitor: JSONVisitor) {
-        if (visitor.visit(this)) {
-            entries.forEach { it.accept(visitor) }
-        }
+    override fun accept(visitor: JSONVisitor): Boolean {
+        val result = visitor.visit(this)
         visitor.endVisit(this)
+        return result
     }
+
 }

@@ -1,12 +1,13 @@
-package model.visitors
+package test
 
+import model.JSONVisitor
 import model.elements.*
 import model.visitors.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Assertions.*
-import kotlin.test.assertEquals
 
-class ConcreteArrayTypeCheckVisitor : ArrayTypeCheckVisitor() {
+// Concrete implementation of ArrayTypeCheckVisitor for testing
+class TestArrayTypeCheckVisitor : ArrayTypeCheckVisitor() {
     override fun endVisit(jsonString: JSONString) {}
     override fun endVisit(jsonBoolean: JSONBoolean) {}
     override fun endVisit(jsonNumber: JSONNumber) {}
@@ -16,7 +17,8 @@ class ConcreteArrayTypeCheckVisitor : ArrayTypeCheckVisitor() {
     override fun endVisit(nullValue: NullValue) {}
 }
 
-class ConcreteJsonValidationVisitor : JsonValidationVisitor() {
+// Concrete implementation of JsonValidationVisitor for testing
+class TestJsonValidationVisitor : JsonValidationVisitor() {
     override fun endVisit(jsonString: JSONString) {}
     override fun endVisit(jsonBoolean: JSONBoolean) {}
     override fun endVisit(jsonNumber: JSONNumber) {}
@@ -29,120 +31,142 @@ class ConcreteJsonValidationVisitor : JsonValidationVisitor() {
 class ArrayTypeCheckVisitorTest {
 
     @Test
-    fun `array with same type elements passes validation`() {
-        val array = JSONArray(listOf(JSONNumber(1), JSONNumber(2), JSONNumber(3)))
-        val visitor = ConcreteArrayTypeCheckVisitor()
+    fun `should pass for array with consistent number types`() {
+        val array = JSONArray(listOf(JSONNumber(1), JSONNumber(2.5), JSONNumber(3)))
+        val visitor = TestArrayTypeCheckVisitor()
         array.accept(visitor)
-        assertEquals(emptyList(), visitor.getValidationErrors())
+        assertEquals(
+            emptyList<String>(),
+            visitor.getValidationErrors(),
+            "Expected no errors for consistent number types"
+        )
     }
 
     @Test
-    fun `array with mixed types reports error`() {
-        val array = JSONArray(listOf(JSONNumber(1), JSONString("two"), JSONNumber(3)))
-        val visitor = ConcreteArrayTypeCheckVisitor()
+    fun `should report error for array with mixed string and number types`() {
+        val array = JSONArray(listOf(JSONString("one"), JSONNumber(2), JSONString("three")))
+        val visitor = TestArrayTypeCheckVisitor()
         array.accept(visitor)
         val errors = visitor.getValidationErrors()
-        assertEquals(1, errors.size)
-        assertEquals("Array contains mixed types: JSONNumber and JSONString", errors[0])
+        assertEquals(1, errors.size, "Expected one error for mixed types")
+        assertEquals("Array contains mixed types: JSONString and JSONNumber", errors[0])
     }
 
     @Test
-    fun `array with null values and same type passes validation`() {
-        val array = JSONArray(listOf(JSONNumber(1), NullValue, JSONNumber(3)))
-        val visitor = ConcreteArrayTypeCheckVisitor()
+    fun `should pass for array with numbers and null values`() {
+        val array = JSONArray(listOf(JSONNumber(1), NullValue, JSONNumber(2)))
+        val visitor = TestArrayTypeCheckVisitor()
         array.accept(visitor)
-        assertEquals(emptyList(), visitor.getValidationErrors())
+        assertEquals(emptyList<String>(), visitor.getValidationErrors(), "Expected no errors when nulls are included")
     }
 
     @Test
-    fun `empty array passes validation`() {
+    fun `should pass for empty array`() {
         val array = JSONArray(emptyList())
-        val visitor = ConcreteArrayTypeCheckVisitor()
+        val visitor = TestArrayTypeCheckVisitor()
         array.accept(visitor)
-        assertEquals(emptyList(), visitor.getValidationErrors())
+        assertEquals(emptyList<String>(), visitor.getValidationErrors(), "Expected no errors for empty array")
     }
 
     @Test
-    fun `nested array with mixed types reports error`() {
-        val nestedArray = JSONArray(listOf(JSONNumber(1), JSONArray(listOf(JSONString("a"), JSONNumber(2)))))
-        val visitor = ConcreteArrayTypeCheckVisitor()
+    fun `should report error for array with mixed object and array types`() {
+        val array = JSONArray(listOf(JSONObject(emptyList()), JSONArray(emptyList())))
+        val visitor = TestArrayTypeCheckVisitor()
+        array.accept(visitor)
+        val errors = visitor.getValidationErrors()
+        assertEquals(1, errors.size, "Expected one error for mixed object and array types")
+        assertEquals("Array contains mixed types: JSONObject and JSONArray", errors[0])
+    }
+
+    @Test
+    fun `should pass for array with only null values`() {
+        val array = JSONArray(listOf(NullValue, NullValue))
+        val visitor = TestArrayTypeCheckVisitor()
+        array.accept(visitor)
+        assertEquals(emptyList<String>(), visitor.getValidationErrors(), "Expected no errors for null-only array")
+    }
+
+    @Test
+    fun `should report multiple errors for nested arrays with mixed types`() {
+        val nestedArray = JSONArray(
+            listOf(
+                JSONNumber(1),
+                JSONArray(listOf(JSONString("a"), JSONBoolean(true)))
+            )
+        )
+        val visitor = TestArrayTypeCheckVisitor()
         nestedArray.accept(visitor)
         val errors = visitor.getValidationErrors()
-        assertEquals(1, errors.size)
-        assertEquals("Array contains mixed types: JSONNumber and JSONArray", errors[0])
-    }
-
-    @Test
-    fun `array with only null values passes validation`() {
-        val array = JSONArray(listOf(NullValue, NullValue))
-        val visitor = ConcreteArrayTypeCheckVisitor()
-        array.accept(visitor)
-        assertEquals(emptyList(), visitor.getValidationErrors())
+        assertEquals(2, errors.size, "Expected two errors for outer and inner array type mismatches")
+        assertTrue(errors.contains("Array contains mixed types: JSONArray and JSONNumber"))
+        assertTrue(errors.contains("Array contains mixed types: JSONBoolean and JSONString"))
     }
 }
 
 class JsonValidationVisitorTest {
 
     @Test
-    fun `object with unique non-empty keys passes validation`() {
+    fun `should pass for object with unique non-empty keys`() {
         val obj = JSONObject(listOf(
             JSONProperty("name", JSONString("Alice")),
             JSONProperty("age", JSONNumber(30))
         ))
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         val errors = visitor.validate(obj)
-        assertEquals(emptyList(), errors)
+        assertEquals(emptyList<String>(), errors, "Expected no errors for valid object")
     }
 
     @Test
-    fun `object with empty key reports error`() {
+    fun `should report error for object with empty key`() {
         val obj = JSONObject(listOf(
-            JSONProperty("", JSONString("value")),
+            JSONProperty("", JSONString("invalid")),
             JSONProperty("valid", JSONNumber(1))
         ))
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         val errors = visitor.validate(obj)
-        assertEquals(1, errors.size)
+        assertEquals(1, errors.size, "Expected one error for empty key")
         assertEquals("Object contains empty key at depth 0", errors[0])
     }
 
     @Test
-    fun `object with duplicate keys reports error`() {
+    fun `should report error for object with duplicate keys`() {
         val obj = JSONObject(listOf(
             JSONProperty("key", JSONString("value1")),
-            JSONProperty("key", JSONNumber(1))
+            JSONProperty("key", JSONNumber(42))
         ))
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         val errors = visitor.validate(obj)
-        assertEquals(1, errors.size)
+        assertEquals(1, errors.size, "Expected one error for duplicate key")
         assertEquals("Duplicate key 'key' in object at depth 0", errors[0])
     }
 
     @Test
-    fun `empty object passes validation`() {
+    fun `should pass for empty object`() {
         val obj = JSONObject(emptyList())
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         val errors = visitor.validate(obj)
-        assertEquals(emptyList(), errors)
+        assertEquals(emptyList<String>(), errors, "Expected no errors for empty object")
     }
 
     @Test
-    fun `nested object with duplicate keys reports error`() {
+    fun `should report errors for nested object with empty and duplicate keys`() {
         val nestedObj = JSONObject(listOf(
-            JSONProperty("name", JSONString("test")),
-            JSONProperty("data", JSONObject(listOf(
+            JSONProperty("info", JSONObject(listOf(
+                JSONProperty("", JSONString("empty")),
                 JSONProperty("id", JSONNumber(1)),
                 JSONProperty("id", JSONString("duplicate"))
-            )))
+            ))),
+            JSONProperty("name", JSONString("test"))
         ))
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         val errors = visitor.validate(nestedObj)
-        assertEquals(1, errors.size)
-        assertEquals("Duplicate key 'id' in object at depth 1", errors[0])
+        assertEquals(2, errors.size, "Expected two errors for empty and duplicate keys")
+        assertTrue(errors.contains("Object contains empty key at depth 1"))
+        assertTrue(errors.contains("Duplicate key 'id' in object at depth 1"))
     }
 
     @Test
-    fun `non-object elements pass validation`() {
+    fun `should pass for non-object JSON elements`() {
         val elements = listOf(
             JSONString("test"),
             JSONNumber(42),
@@ -150,10 +174,23 @@ class JsonValidationVisitorTest {
             NullValue,
             JSONArray(listOf(JSONNumber(1), JSONString("2")))
         )
-        val visitor = ConcreteJsonValidationVisitor()
+        val visitor = TestJsonValidationVisitor()
         elements.forEach { element ->
             val errors = visitor.validate(element)
-            assertEquals(emptyList(), errors)
+            assertEquals(emptyList<String>(), errors, "Expected no errors for non-object element ${element::class.simpleName}")
         }
+    }
+
+    @Test
+    fun `should report multiple empty key errors in single object`() {
+        val obj = JSONObject(listOf(
+            JSONProperty("", JSONString("first")),
+            JSONProperty("", JSONNumber(2)),
+            JSONProperty("valid", JSONString("ok"))
+        ))
+        val visitor = TestJsonValidationVisitor()
+        val errors = visitor.validate(obj)
+        assertEquals(2, errors.size, "Expected two errors for multiple empty keys")
+        assertTrue(errors.all { it == "Object contains empty key at depth 0" })
     }
 }
