@@ -1,107 +1,85 @@
 package model.inference
 
-import kotlin.reflect.KVisibility
-import kotlin.reflect.full.findAnnotation
-import kotlin.reflect.full.memberProperties
 import model.elements.*
+import kotlin.reflect.full.findAnnotation
+import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.full.memberProperties
+import kotlin.reflect.jvm.javaGetter
+import java.lang.reflect.Method
+import kotlin.reflect.KParameter
 
-/**
- * Converts Kotlin objects to JSONElement instances for serialization.
- * Supports primitives, collections, enums, data classes, and custom annotations (@SerialName, @Exclude).
- * Does not support parsing; use external tools for deserialization.
- */
 object JsonConverter {
+    @Retention(AnnotationRetention.RUNTIME)
+    annotation class SerialName(val value: String)
 
-    /**
-     * Converts a Kotlin object to a JSONElement.
-     * @param obj The object to convert (can be null).
-     * @param seen A set to track objects and detect circular references.
-     * @return The corresponding JSONElement.
-     * @throws IllegalArgumentException if circular references or unsupported types are encountered.
-     */
-    fun toJsonElement(obj: Any?, seen: MutableSet<Any> = mutableSetOf()): JSONElement {
-        if (obj == null) return NullValue // Corrected singleton access
-        if (obj in seen) throw IllegalArgumentException("Circular reference detected for object: $obj")
-        seen.add(obj)
-
-        return try {
-            when (obj) {
-                is String -> JSONString(obj)
-                is Number -> JSONNumber(obj)
-                is Boolean -> JSONBoolean(obj)
-                is List<*> -> convertList(obj, seen)
-                is Map<*, *> -> convertMap(obj, seen)
-                is Enum<*> -> JSONString(obj.name)
-                is Array<*> -> convertList(obj.toList(), seen)
-                is Set<*> -> convertList(obj.toList(), seen)
-                else -> convertDataClassOrFallback(obj, seen)
-            }
-        } finally {
-            seen.remove(obj) // Ensure removal even if an exception occurs
-        }
-    }
-
-    private fun convertList(list: List<*>, seen: MutableSet<Any>): JSONArray {
-        val elements = list.map { item -> toJsonElement(item, seen) }
-        return JSONArray(elements).apply { elements.forEach { it.owner = this } }
-    }
-
-    private fun convertMap(map: Map<*, *>, seen: MutableSet<Any>): JSONObject {
-        val entries = map.entries.map { (key, value) ->
-            if (key == null) throw IllegalArgumentException("Map keys cannot be null")
-            if (key !is String) throw IllegalArgumentException("Map keys must be Strings, got ${key::class.simpleName}")
-            JSONProperty(key, toJsonElement(value, seen)).apply { this.value.owner = this }
-        }
-        return JSONObject(entries).apply { entries.forEach { it.owner = this } }
-    }
-
-    @Target(AnnotationTarget.PROPERTY)
-    annotation class SerialName(val name: String)
-
-    @Target(AnnotationTarget.PROPERTY)
+    @Retention(AnnotationRetention.RUNTIME)
     annotation class Exclude
 
-    /**
-     * Converts a data class to a JSONObject, with a fallback for non-data classes.
-     * @param obj The object to convert.
-     * @param seen A set to track objects and detect circular references.
-     * @return A JSONObject representing the object.
-     */
-    private fun convertDataClassOrFallback(obj: Any, seen: MutableSet<Any>): JSONObject {
-        val properties = obj::class.memberProperties
-            .filter { prop ->
-                prop.visibility == KVisibility.PUBLIC && prop.annotations.none { it is Exclude }
-            }
-            .mapNotNull { prop ->
-                try {
-                    val serialName = prop.findAnnotation<SerialName>()?.name ?: prop.name
-                    val value = prop.getter.call(obj)
-                    JSONProperty(serialName, toJsonElement(value, seen)).apply { this.value.owner = this }
-                } catch (e: IllegalAccessException) {
-                    throw IllegalArgumentException("Cannot access property ${prop.name} in ${obj::class.simpleName}", e)
-                } catch (e: Exception) {
-                    null // Skip properties that fail
+    private val processedObjects = mutableSetOf<Any>()
+
+    fun toJsonElement(value: Any?): JSONElement {
+        if (value == null) return NullValue
+        if (value in processedObjects) throw IllegalArgumentException("Circular reference detected")
+        processedObjects.add(value)
+
+        try {
+            return when (value) {
+                is String -> JSONString(value)
+                is Int, is Double, is Long, is Float, is Short, is Byte -> JSONNumber(value as Number)
+                is Boolean -> JSONBoolean(value)
+                is List<*> -> JSONArray(value.map { toJsonElement(it) })
+                is Array<*> -> JSONArray(value.map { toJsonElement(it) })
+                is Set<*> -> JSONArray(value.map { toJsonElement(it) })
+                is Map<*, *> -> {
+                    if (value.keys.any { it !is String }) {
+                        throw IllegalArgumentException("Map keys must be Strings")
+                    }
+                    JSONObject(value.entries.map { (k, v) ->
+                        JSONProperty(k as String, toJsonElement(v))
+                    })
+                }
+                is Enum<*> -> JSONString(value.name)
+                is Collection<*> -> throw IllegalArgumentException("Unsupported collection type: ${value::class.simpleName}")
+                else -> {
+                    if (value::class.isData) {
+                        convertDataClass(value)
+                    } else {
+                        throw IllegalArgumentException("Unsupported type: ${value::class.simpleName}")
+                    }
                 }
             }
-        if (properties.isNotEmpty()) {
-            return JSONObject(properties).apply { properties.forEach { it.owner = this } }
+        } finally {
+            processedObjects.remove(value)
+        }
+    }
+
+    private fun convertDataClass(value: Any): JSONObject {
+        val kClass = value::class
+        if (!kClass.isData) throw IllegalArgumentException("Only data classes are supported")
+
+        val constructor = kClass.primaryConstructor
+            ?: throw IllegalArgumentException("Data class must have a primary constructor")
+
+        val entries = constructor.parameters.mapNotNull { param ->
+            val prop = kClass.memberProperties.find { it.name == param.name }
+                ?: throw IllegalArgumentException("Property ${param.name} not found")
+
+            // Check annotations on the constructor parameter
+            val serialNameAnn = param.findAnnotation<SerialName>()
+            val excludeAnn = param.findAnnotation<Exclude>()
+            if (excludeAnn != null) return@mapNotNull null
+
+            // Get serial name, fallback to parameter name if empty or blank
+            val serialName = serialNameAnn?.value?.takeIf { it.isNotBlank() } ?: param.name
+            ?: throw IllegalArgumentException("Parameter name missing")
+
+            // Get property value using getter
+            val getter = prop.javaGetter
+                ?: throw IllegalArgumentException("Getter for ${param.name} not found")
+            val propValue = getter.invoke(value)
+            JSONProperty(serialName, toJsonElement(propValue))
         }
 
-        // Fallback: Treat as a map of public properties (if accessible)
-        val fallbackProperties = obj::class.memberProperties
-            .filter { it.visibility == KVisibility.PUBLIC }
-            .mapNotNull { prop ->
-                try {
-                    val name = prop.name
-                    val value = prop.getter.call(obj)
-                    JSONProperty(name, toJsonElement(value, seen)).apply { this.value.owner = this }
-                } catch (e: Exception) {
-                    null // Skip inaccessible properties
-                }
-            }
-        if (fallbackProperties.isEmpty()) {
-            throw IllegalArgumentException("Unsupported type with no accessible properties: ${obj::class.simpleName}")
-        }
-        return JSONObject(fallbackProperties).apply { fallbackProperties.forEach { it.owner = this } }
+        return JSONObject(entries)
     }
 }

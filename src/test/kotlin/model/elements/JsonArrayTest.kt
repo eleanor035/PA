@@ -55,6 +55,21 @@ class JsonArrayTest {
         assertEquals("[true, [1]]", modified.serialize())
     }
 
+    @Test
+    fun `removeAt removes element correctly`() {
+        val array = JSONArray(listOf(JSONString("a"), JSONNumber(1), JSONBoolean(true)))
+        val modifiedArray = array.removeAt(1)  // Capture the new array
+        assertEquals("[\"a\", true]", modifiedArray.serialize(), "Array should have element at index 1 removed")
+    }
+
+    @Test
+    fun `add to array maintains structure`() {
+        val array = JSONArray(listOf(JSONString("a")))
+        val modifiedArray = array.add(array.elements.size, JSONNumber(42))  // Capture the new array
+        assertEquals("[\"a\", 42]", modifiedArray.serialize(), "Array should include newly added element")
+    }
+}
+
 class SerializationTest {
     @Test
     fun `serialize boolean`() {
@@ -73,5 +88,4 @@ class SerializationTest {
         val s = JSONString("Hello\nWorld")
         assertEquals("\"Hello\\nWorld\"", s.serialize())
     }
-}
 }

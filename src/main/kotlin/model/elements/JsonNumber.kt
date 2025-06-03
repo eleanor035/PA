@@ -1,6 +1,7 @@
 package model.elements
 
 import model.JSONVisitor
+import java.math.BigDecimal
 
 /**
  * Represents a JSON number value.
@@ -9,6 +10,15 @@ import model.JSONVisitor
 data class JSONNumber(val value: Number) : JSONElement() {
     constructor(value: Number, owner: JSONElement?) : this(value) {
         this.owner = owner
+    }
+
+    init {
+        if (value is Double && !value.isFinite()) {
+            throw IllegalArgumentException("JSON numbers must be finite")
+        }
+        if (value is Float && !value.isFinite()) {
+            throw IllegalArgumentException("JSON numbers must be finite")
+        }
     }
 
     override fun serialize(): String {
@@ -21,7 +31,7 @@ data class JSONNumber(val value: Number) : JSONElement() {
     }
 
     override fun deepCopy(): JSONElement {
-        return JSONNumber(value, owner)
+        return JSONNumber(value)
     }
 
     override fun toString(): String = value.toString()
@@ -32,4 +42,13 @@ data class JSONNumber(val value: Number) : JSONElement() {
         return result
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is JSONNumber) return false
+        return BigDecimal(this.value.toString()) == BigDecimal(other.value.toString())
+    }
+
+    override fun hashCode(): Int {
+        return BigDecimal(value.toString()).hashCode()
+    }
 }

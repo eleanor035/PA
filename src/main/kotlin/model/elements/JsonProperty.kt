@@ -48,6 +48,6 @@ data class JSONProperty(val key: String, val value: JSONElement) : JSONElement()
             .replace("\r", "\\r")
             .replace("\t", "\\t")
             .replace("\b", "\\b")
-            .replace("\u000c", "\\f")
+            .replace("\u000c", "\\f") /* explicar o \u000c */
     }
 }

@@ -56,6 +56,18 @@ class JsonObjectTest {
     }
 
     @Test
+    fun `deeply nested object serialization`() {
+        val nestedObject = JSONObject(listOf(
+            JSONProperty("nested", JSONObject(listOf(
+                JSONProperty("inner", JSONObject(listOf(
+                    JSONProperty("value", JSONString("deep")))
+                )))
+            ))
+        ))
+        assertEquals("{\"nested\": {\"inner\": {\"value\": \"deep\"}}}", nestedObject.serialize(), "Nested object should serialize correctly")
+    }
+
+    @Test
     fun `init validates unique keys`() {
         val exception = assertFailsWith<IllegalArgumentException> {
             JSONObject(listOf(

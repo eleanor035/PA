@@ -17,43 +17,40 @@ abstract class ArrayTypeCheckVisitor : JSONVisitor {
 
     override fun visit(jsonArray: JSONArray): Boolean {
         // Perform type checking for this array
-        var arrayType: Class<out JSONElement>? = null
-        var hasMixedTypes = false
-        var secondType: Class<out JSONElement>? = null
         val nonNullElements = jsonArray.elements.filter { it !is NullValue }
-
-        for (element in nonNullElements) {
-            if (arrayType == null) {
-                arrayType = element.javaClass
-            } else if (element.javaClass != arrayType && !hasMixedTypes) {
-                hasMixedTypes = true
-                secondType = element.javaClass
+        if (nonNullElements.isNotEmpty()) {
+            val firstType = nonNullElements.first().javaClass
+            val hasMixedTypes = nonNullElements.any { it.javaClass != firstType }
+            if (hasMixedTypes) {
+                val secondType = nonNullElements.first { it.javaClass != firstType }.javaClass
+                errors.add("Array contains mixed types: ${firstType.simpleName} and ${secondType.simpleName}")
             }
         }
 
-        if (hasMixedTypes && arrayType != null && secondType != null) {
-            errors.add("Array contains mixed types: ${arrayType.simpleName} and ${secondType.simpleName}")
-        }
-
-        // Traverse into each element for further validation
-        jsonArray.elements.forEach { it.accept(this) }
-        return true
+        // Continue traversal to nested arrays
+        return true // Allow visiting children
     }
 
-    // Type-specific visit methods (no type checking)
+    // Type-specific visit methods (no action needed for non-arrays)
     override fun visit(jsonString: JSONString): Boolean = true
     override fun visit(jsonBoolean: JSONBoolean): Boolean = true
     override fun visit(jsonNumber: JSONNumber): Boolean = true
-    override fun visit(jsonObject: JSONObject): Boolean = true
-    override fun visit(jsonProperty: JSONProperty): Boolean = true
+    override fun visit(jsonObject: JSONObject): Boolean {
+        jsonObject.entries.forEach { it.value.accept(this) }
+        return true
+    }
+    override fun visit(jsonProperty: JSONProperty): Boolean {
+        jsonProperty.value.accept(this)
+        return true
+    }
     override fun visit(nullValue: NullValue): Boolean = true
 
-    // End visit methods
+    // End visit methods (no action needed)
     override fun endVisit(jsonString: JSONString) {}
     override fun endVisit(jsonBoolean: JSONBoolean) {}
     override fun endVisit(jsonNumber: JSONNumber) {}
     override fun endVisit(jsonArray: JSONArray) {}
     override fun endVisit(jsonObject: JSONObject) {}
     override fun endVisit(jsonProperty: JSONProperty) {}
-    override fun endVisit(nullValue: NullValue)  {}
+    override fun endVisit(nullValue: NullValue) {}
 }

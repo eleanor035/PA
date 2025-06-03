@@ -7,6 +7,13 @@ import model.JSONVisitor
  * @property entries The list of properties, where each property has a unique key.
  */
 data class JSONObject(val entries: List<JSONProperty>) : JSONElement() {
+    init {
+        val keys = entries.map { it.key } // Extrai todas as chaves
+        if (keys.distinct().size != keys.size) { // Compara o número de chaves únicas com o total
+            throw IllegalArgumentException("Property keys must be unique")
+        }
+    }
+
     constructor(entries: List<JSONProperty>, owner: JSONElement?) : this(entries) {
         this.owner = owner
         // Set the owner of each JSONProperty to this JSONObject
@@ -52,5 +59,4 @@ data class JSONObject(val entries: List<JSONProperty>) : JSONElement() {
         visitor.endVisit(this)
         return result
     }
-
 }

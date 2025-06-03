@@ -38,6 +38,13 @@ class JsonStringTest {
     }
 
     @Test
+    fun `serialize very long string`() {
+        val longString = "a".repeat(10000)
+        val jsonString = JSONString(longString)
+        assertEquals("\"$longString\"", jsonString.serialize(), "Long string should serialize correctly")
+    }
+
+    @Test
     fun `accept visitor pattern`() {
         val jsonString = JSONString("test")
         var visited = false
@@ -57,8 +64,8 @@ class JsonStringTest {
             override fun endVisit(jsonObject: JSONObject) {}
             override fun visit(jsonProperty: JSONProperty): Boolean = true
             override fun endVisit(jsonProperty: JSONProperty) {}
-            override fun visit(jsonNull: NullValue): Boolean = true
-            override fun endVisit(jsonNull: NullValue) {}
+            override fun visit(nullValue: NullValue): Boolean = true
+            override fun endVisit(nullValue: NullValue) {}
         }
         jsonString.accept(visitor)
         assertTrue(visited)
