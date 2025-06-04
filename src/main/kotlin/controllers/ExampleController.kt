@@ -14,6 +14,9 @@ class ExampleController {
     @Mapping("hello")
     fun helloWorld(): String = "Hello, World!"
 
+    @Mapping("api/pair")
+    fun obj(): Pair<String, String> = Pair("um", "dois")
+
     /**
      * GET /user/{id}
      * Retorna um JSON simples com informações do usuário

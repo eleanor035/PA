@@ -1,0 +1,121 @@
+@startuml
+
+package "model.elements" {
+  abstract class JSONElement {
+    +owner: JSONElement?
+    +depth: Int
+    +serialize(): String
+    +serializePretty(indent: Int): String
+    +deepCopy(): JSONElement
+    +accept(visitor: JSONVisitor): Boolean
+  }
+
+  class JSONArray {
+    +elements: List<JSONElement>
+    +filter(predicate: (JSONElement) -> Boolean): JSONArray
+    +map(transform: (JSONElement) -> JSONElement): JSONArray
+    +merge(other: JSONArray): JSONArray
+    +add(index: Int, element: JSONElement): JSONArray
+    +removeAt(index: Int): JSONArray
+    +get(index: Int): JSONElement?
+    +getAs<T : JSONElement>(index: Int): T?
+    +contains(element: JSONElement): Boolean
+    +size: Int
+    +isEmpty: Boolean
+  }
+
+  class JSONObject {
+    +entries: List<JSONProperty>
+    +filter(predicate: (JSONProperty) -> Boolean): JSONObject
+    +get(key: String): JSONElement?
+    +getAs<T : JSONElement>(key: String): T?
+    +isEmpty: Boolean
+  }
+
+  class JSONProperty {
+    +key: String
+    +value: JSONElement
+    -escapeJsonString(s: String): String
+  }
+
+  class JSONString {
+    +value: String
+    -escapeJsonString(s: String): String
+  }
+
+  class JSONNumber {
+    +value: Number
+  }
+
+  class JSONBoolean {
+    +value: Boolean
+    +transform(transform: (Boolean) -> Boolean): JSONBoolean
+    +isTrue: Boolean
+    +isFalse: Boolean
+    +toBoolean(): Boolean
+  }
+
+  class NullValue {
+  }
+}
+
+package "model.visitors" {
+  interface JSONVisitor {
+    +visit(jsonString: JSONString): Boolean
+    +visit(jsonBoolean: JSONBoolean): Boolean
+    +visit(jsonNumber: JSONNumber): Boolean
+    +visit(jsonArray: JSONArray): Boolean
+    +visit(jsonObject: JSONObject): Boolean
+    +visit(jsonProperty: JSONProperty): Boolean
+    +visit(nullValue: NullValue): Boolean
+    +endVisit(jsonString: JSONString)
+    +endVisit(jsonBoolean: JSONBoolean)
+    +endVisit(jsonNumber: JSONNumber)
+    +endVisit(jsonArray: JSONArray)
+    +endVisit(jsonObject: JSONObject)
+    +endVisit(jsonProperty: JSONProperty)
+    +endVisit(nullValue: NullValue)
+  }
+
+  class JsonValidationVisitor {
+    -errors: MutableList<String>
+    +getValidationErrors(): List<String>
+    +validate(element: JSONElement): List<String>
+    -calculateDepth(element: JSONElement): Int
+  }
+
+  abstract class ArrayTypeCheckVisitor {
+    -errors: MutableList<String>
+    +getValidationErrors(): List<String>
+  }
+}
+
+package "model.inference" {
+  class JsonConverter {
+    -processedObjects: MutableSet<Any>
+    +toJsonElement(value: Any?): JSONElement
+    -convertDataClass(value: Any): JSONObject
+  }
+
+  annotation SerialName
+  annotation Exclude
+}
+
+JSONElement <|-- JSONArray
+JSONElement <|-- JSONObject
+JSONElement <|-- JSONString
+JSONElement <|-- JSONNumber
+JSONElement <|-- JSONBoolean
+JSONElement <|-- NullValue
+JSONElement <|-- JSONProperty
+JSONArray o--> "many" JSONElement : elements
+JSONObject o--> "many" JSONProperty : entries
+JSONProperty o--> "1" JSONElement : value
+JSONElement --> JSONVisitor : accepts
+JsonValidationVisitor ..|> JSONVisitor
+ArrayTypeCheckVisitor ..|> JSONVisitor
+JsonConverter --> JSONElement : produces
+JsonConverter --> SerialName : uses
+JsonConverter --> Exclude : uses
+
+@enduml

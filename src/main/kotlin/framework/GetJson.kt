@@ -32,10 +32,19 @@ class GetJson(vararg controllers: KClass<*>) {
                 )
             }
 
+            // Check for controller-level @Mapping annotation
+            val controllerPath = controllerClass.findAnnotation<Mapping>()?.value?.let { path ->
+                path.trim().removePrefix("/").removeSuffix("/")
+            } ?: ""
+
             controllerClass.declaredFunctions.forEach { function ->
                 function.findAnnotation<Mapping>()?.let { mapping ->
-                    val pathPattern = mapping.value
-                    routes.add(createRoute(controllerInstance, function, pathPattern))
+                    // Combine controller-level and method-level paths
+                    val methodPath = mapping.value.trim().removePrefix("/").removeSuffix("/")
+                    val fullPath = if (controllerPath.isNotEmpty()) "$controllerPath/$methodPath" else methodPath
+                    // Normalize path to avoid double slashes
+                    val normalizedPath = fullPath.replace(Regex("/+"), "/")
+                    routes.add(createRoute(controllerInstance, function, normalizedPath))
                 }
             }
         }
@@ -79,9 +88,16 @@ class GetJson(vararg controllers: KClass<*>) {
         logger.info("Server running on port $port")
         logger.info("Available endpoints:")
         routes.forEach { route ->
-            logger.info("  GET ${route.pathPattern}")
+            val params = buildString {
+                if (route.pathParams.isNotEmpty()) {
+                    append("path params: ${route.pathParams.keys.joinToString(", ")}")
+                }
+                if (route.queryParams.isNotEmpty()) {
+                    if (isNotEmpty()) append("; ")
+                    append("query params: ${route.queryParams.keys.joinToString(", ")}")
+                }
+            }
+            logger.info("  GET ${route.pathPattern}${if (params.isNotEmpty()) " ($params)" else ""}")
         }
     }
 }
-
-// Em vez de colocar 'main' aqui, vamos criar um arquivo separado.
