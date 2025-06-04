@@ -25,6 +25,8 @@ class RequestHandler(private val routes: List<Route>) : HttpHandler {
             val requestPath = exchange.requestURI.path.removePrefix("/")
             val queryParams = parseQueryString(exchange.requestURI.query)
 
+            val matchingRoutes = routes.filter { it.match(requestPath) }
+
             val route = routes.find { it.match(requestPath) }
             if (route == null) {
                 sendResponse(exchange, 404, "Not Found")
