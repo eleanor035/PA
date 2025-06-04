@@ -25,15 +25,13 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 
-    // Adicione esta configuração
     jvmArgs = listOf("--enable-preview")
 }
 
 application {
-    mainClass.set("framework.GetJsonKt")
+    mainClass.set("MainKt")
 }
 
-// Configuração de compatibilidade JVM
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(21))
@@ -54,7 +52,7 @@ tasks.withType<JavaCompile> {
 
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "framework.GetJsonKt"
+        attributes["Main-Class"] = "MainKt"
     }
 
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })

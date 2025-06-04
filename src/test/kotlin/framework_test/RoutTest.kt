@@ -2,12 +2,14 @@ package framework_test
 
 import framework.*
 import kotlin.reflect.KFunction
+import kotlin.reflect.KParameter
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.functions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 enum class Color { RED, GREEN, BLUE }
 
@@ -145,22 +147,54 @@ class RouteTest {
     fun `use default value for missing query param`() {
         val controller = TestController()
         val function = getKFunction(controller, "search")
+
+        // Simula uma rota completa com handler
         val route = Route(
             pathPattern = "/search",
             handler = function,
             controller = controller,
             pathParams = emptyMap(),
-            queryParams = mapOf("q" to function.parameters[1])
+            queryParams = mapOf(
+                "q" to function.parameters[1],
+                "page" to function.parameters[2] // Adiciona mapeamento para page
+            )
         )
 
-        val args = route.parseArguments(
-            pathVariables = emptyMap(),
-            queryParams = mapOf("q" to "framework")
-        )
+        // Simula o processamento de uma requisição
+        val pathVariables = emptyMap<String, String>()
+        val queryParams = mapOf("q" to "framework") // Page ausente
 
-        assertEquals("framework", args[1])
-        assertEquals(1, args[2]) // Default value
+        // Extrai e converte argumentos
+        val rawArgs = route.parseArguments(pathVariables, queryParams)
+
+        // Simula o RequestHandler
+        val paramMap = mutableMapOf<KParameter, Any?>()
+        paramMap[function.parameters[0]] = controller // receiver
+
+        function.parameters.forEachIndexed { index, param ->
+            if (index == 0) return@forEachIndexed
+
+            when (val value = rawArgs[index]) {
+                null -> {
+                    if (!param.isOptional && !param.type.isMarkedNullable) {
+                        // Usando fail corretamente importado
+                        fail("Missing required parameter")
+                    }
+                    if (param.type.isMarkedNullable) {
+                        paramMap[param] = null
+                    }
+                }
+                else -> paramMap[param] = value
+            }
+        }
+
+        // Invoca o método
+        val result = function.callBy(paramMap) as String
+
+        // Verifica o resultado final
+        assertEquals("Results for framework, page 1", result)
     }
+
 
     @Test
     fun `convert enum parameters`() {

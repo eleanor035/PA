@@ -35,12 +35,7 @@ class RequestHandler(private val routes: List<Route>) : HttpHandler {
             val rawArgs = route.parseArguments(pathVariables, queryParams)
 
             // =====================================
-            // Montar o Map<KParameter, Any?> para callBy, levando em conta:
-            // - receiver (controller) sempre presente;
-            // - se rawArgs[i] != null → convertidos normais;
-            // - se rawArgs[i] == null e parâmetro nullable → explicitar null;
-            // - se rawArgs[i] == null e p.isOptional == true → omitir (usar default);
-            // - senão → missingRequired → 400.
+            // Montar o Map<KParameter, Any?> para callBy
             // =====================================
             val paramMap = mutableMapOf<KParameter, Any?>()
 
@@ -51,22 +46,23 @@ class RequestHandler(private val routes: List<Route>) : HttpHandler {
             route.handler.parameters.forEachIndexed { index, kparam ->
                 if (index == 0) return@forEachIndexed // pular receiver
 
-                val providedValue = rawArgs.getOrNull(index)
+                val value = rawArgs[index]
 
-                when {
-                    providedValue != null -> {
-                        paramMap[kparam] = providedValue
-                    }
-                    kparam.type.isMarkedNullable -> {
-                        paramMap[kparam] = null
-                    }
-                    kparam.isOptional -> {
-                        // Não fazemos nada - o callBy aplicará o valor padrão automaticamente
-                    }
-                    else -> {
-                        sendResponse(exchange, 400, "Bad Request: Missing required parameters")
+                // Lógica corrigida para tratamento de parâmetros
+                if (value == null) {
+                    // Parâmetros obrigatórios ausentes geram erro
+                    if (!kparam.isOptional && !kparam.type.isMarkedNullable) {
+                        sendResponse(exchange, 400, "Bad Request: Missing required parameter '${kparam.name}'")
                         return
                     }
+                    // Parâmetros nullable recebem null explicitamente
+                    if (kparam.type.isMarkedNullable) {
+                        paramMap[kparam] = null
+                    }
+                    // Parâmetros opcionais são omitidos (callBy usará valor padrão)
+                } else {
+                    // Parâmetros com valor são incluídos normalmente
+                    paramMap[kparam] = value
                 }
             }
 
@@ -78,6 +74,10 @@ class RequestHandler(private val routes: List<Route>) : HttpHandler {
             val keyValidator = JsonValidationVisitor()
             jsonElement.accept(keyValidator)
             val keyErrors = keyValidator.getValidationErrors()
+            if (keyErrors.isNotEmpty()) {
+                sendResponse(exchange, 500, "JSON validation failed: ${keyErrors.joinToString()}")
+                return
+            }
 
             val json = jsonElement.serialize()
             sendResponse(exchange, 200, json, "application/json")
@@ -108,9 +108,10 @@ class RequestHandler(private val routes: List<Route>) : HttpHandler {
         contentType: String = "text/plain"
     ) {
         exchange.responseHeaders.set("Content-Type", contentType)
-        exchange.sendResponseHeaders(status, content.toByteArray().size.toLong())
+        val contentBytes = content.toByteArray()
+        exchange.sendResponseHeaders(status, contentBytes.size.toLong())
         exchange.responseBody.use { os: OutputStream ->
-            os.write(content.toByteArray())
+            os.write(contentBytes)
         }
     }
 }

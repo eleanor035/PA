@@ -15,18 +15,15 @@ class GetJson(vararg controllers: KClass<*>) {
 
     init {
         controllers.forEach { controllerClass ->
-            // 1) Verificar se existe algum construtor SEM PARÂMETROS; se não existir, falhar.
             val noArgCtor = controllerClass.constructors.firstOrNull { it.parameters.isEmpty() }
                 ?: throw IllegalArgumentException(
                     "Controller ${controllerClass.simpleName} must have a no-arg constructor"
                 )
 
-            // 2) Se não tiver @RestController, simplesmente ignoramos (sem lançar nada).
             if (controllerClass.findAnnotation<RestController>() == null) {
                 return@forEach
             }
 
-            // 3) Como passou na verificação de no-arg + tem @RestController, instanciamos e registramos
             val controllerInstance = try {
                 noArgCtor.call()
             } catch (ex: Exception) {
@@ -35,7 +32,6 @@ class GetJson(vararg controllers: KClass<*>) {
                 )
             }
 
-            // 4) Percorremos os métodos declarados e registramos os que têm @GetMapping
             controllerClass.declaredFunctions.forEach { function ->
                 function.findAnnotation<Mapping>()?.let { mapping ->
                     val pathPattern = mapping.value
@@ -54,7 +50,7 @@ class GetJson(vararg controllers: KClass<*>) {
         val queryParams = mutableMapOf<String, KParameter>()
 
         function.parameters.forEachIndexed { index, param ->
-            if (index == 0) return@forEachIndexed // pular o receiver
+            if (index == 0) return@forEachIndexed
 
             param.findAnnotation<Path>()?.let { pathVar ->
                 val name = pathVar.name.takeIf { it.isNotBlank() }
@@ -74,41 +70,18 @@ class GetJson(vararg controllers: KClass<*>) {
         return Route(pathPattern, function, controller, pathParams, queryParams)
     }
 
-    /**
-     * Inicia o servidor HTTP na porta informada, criando um contexto "/" que encaminha para RequestHandler.
-     */
     fun start(port: Int) {
         val server = HttpServer.create(InetSocketAddress(port), 0)
         server.createContext("/", RequestHandler(routes))
         server.executor = null
         server.start()
 
-        // Logging unificado usando o logger
         logger.info("Server running on port $port")
         logger.info("Available endpoints:")
         routes.forEach { route ->
             logger.info("  GET ${route.pathPattern}")
         }
     }
-
-    fun main() {
-        // Exemplo de uso com um controller de demonstração
-        GetJson(ExampleController::class).start(8080)
-    }
-
-    @RestController
-    class ExampleController {
-        @Mapping("hello")
-        fun helloWorld(): String = "Hello, World!"
-
-        @Mapping("user/{id}")
-        fun getUserById(@Path id: Int): Map<String, Any> {
-            return mapOf(
-                "id" to id,
-                "name" to "Leonor Pereira",
-                "email" to "lppao@iscte-iul.pt"
-            )
-        }
-
-    }
 }
+
+// Em vez de colocar 'main' aqui, vamos criar um arquivo separado.

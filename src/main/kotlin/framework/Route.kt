@@ -38,10 +38,9 @@ data class Route(
         pathVariables: Map<String, String>,
         queryParams: Map<String, String>
     ): Array<Any?> {
-        // Cria array com tamanho igual ao número de parâmetros do handler (inclui receiver em index 0)
         val args = arrayOfNulls<Any?>(handler.parameters.size)
 
-        // 1) Preenche variáveis de rota (pathVariables)
+        // 1) Preenche variáveis de rota
         pathVariables.forEach { (name, value) ->
             pathParams[name]?.let { param ->
                 args[param.index] = convertValue(value, param.type.javaType)
@@ -52,25 +51,6 @@ data class Route(
         queryParams.forEach { (name, value) ->
             this.queryParams[name]?.let { param ->
                 args[param.index] = convertValue(value, param.type.javaType)
-            }
-        }
-
-        // 3) Atribui valores padrão para parâmetros opcionais:
-        //    - Se args[index] ainda for null
-        //    - E param.isOptional == true
-        //    - Enquanto o tipo for Int, atribui 1 (correspondente ao "= 1" na assinatura).
-        handler.parameters.forEach { param ->
-            when {
-                // ignoramos receiver (este será setado depois, no RequestHandler)
-                param.index == 0 -> return@forEach
-
-                // Se já veio valor (não-null), não mexemos
-                args[param.index] != null -> return@forEach
-
-                // Se for outro tipo opcional, poderíamos tratar aqui (por enquanto, deixamos null)
-                param.isOptional -> {
-                    // nada: o método chamador (RequestHandler) assumirá null ou default
-                }
             }
         }
 
