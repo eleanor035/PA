@@ -1,5 +1,6 @@
 plugins {
-    kotlin("jvm") version "2.1.20"
+    kotlin("jvm") version "1.9.22"
+    application
 }
 
 group = "org.example"
@@ -10,16 +11,52 @@ repositories {
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
-    implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.antlr:antlr4:4.12.0")
-    implementation("org.antlr:antlr4-runtime:4.13.2")
-    implementation("org.junit.platform:junit-platform-suite-engine:1.9.2")
+    implementation(kotlin("stdlib"))
     implementation(kotlin("reflect"))
-    implementation("org.slf4j:slf4j-simple:1.7.36")
+    implementation("com.sun.net.httpserver:http:20070405")
+
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation("org.mockito:mockito-core:5.12.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
 }
 
 tasks.test {
     useJUnitPlatform()
+
+    // Adicione esta configuração
+    jvmArgs = listOf("--enable-preview")
 }
 
+application {
+    mainClass.set("framework.GetJsonKt")
+}
+
+// Configuração de compatibilidade JVM
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
+}
+
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions {
+        jvmTarget = "21"
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+    }
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("--enable-preview")
+    options.release.set(21)
+}
+
+tasks.jar {
+    manifest {
+        attributes["Main-Class"] = "framework.GetJsonKt"
+    }
+
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

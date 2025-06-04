@@ -1,4 +1,4 @@
-package test
+package model.visitors
 
 import model.JSONVisitor
 import model.elements.*

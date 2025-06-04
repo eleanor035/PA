@@ -11,15 +11,9 @@ open class JsonValidationVisitor : JSONVisitor {
     private val errors = mutableListOf<String>()
 
     /**
-     * Validates a JSON element and returns a list of validation errors.
-     * @param jsonElement The JSON element to validate.
-     * @return A list of error messages for invalid keys.
+     * Returns the list of validation errors found during traversal.
      */
-    fun validate(jsonElement: JSONElement): List<String> {
-        errors.clear()
-        jsonElement.accept(this)
-        return errors.toList()
-    }
+    fun getValidationErrors(): List<String> = errors.toList()
 
     override fun visit(jsonString: JSONString): Boolean = true
     override fun visit(jsonBoolean: JSONBoolean): Boolean = true
@@ -79,5 +73,10 @@ open class JsonValidationVisitor : JSONVisitor {
             depth++
         }
         return depth
+    }
+
+    fun validate(element: JSONElement): List<String> {
+        element.accept(this)
+        return getValidationErrors()
     }
 }
